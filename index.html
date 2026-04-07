@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ESV Bible Viewer</title>
+    
+    <!-- PWA Requirements -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0066cc">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ESV Bible">
+    <link rel="apple-touch-icon" href="icon-512.png">
+
+    <style>
+        :root {
+            --bg-color: #fcfcfc;
+            --text-color: #333333;
+            --control-bg: #ffffff;
+            --control-border: #e0e0e0;
+            --button-bg: #f5f5f5;
+            --button-text: #333333;
+            --button-hover: #e8e8e8;
+            --select-bg: #ffffff;
+            --accent: #0066cc;
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --control-bg: #1e1e1e;
+            --control-border: #333333;
+            --button-bg: #2a2a2a;
+            --button-text: #e0e0e0;
+            --button-hover: #3a3a3a;
+            --select-bg: #1e1e1e;
+            --accent: #66b3ff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .settings-bar {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: flex-end;
+            padding: 10px 15px;
+            box-sizing: border-box;
+            gap: 8px;
+        }
+
+        .settings-bar button {
+            background: transparent;
+            border: 1px solid var(--control-border);
+            color: var(--text-color);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .settings-bar button:hover {
+            background-color: var(--button-hover);
+        }
+
+        .nav-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 15px 15px 15px;
+            box-sizing: border-box;
+            gap: 10px;
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-color);
+            z-index: 100;
+            border-bottom: 1px solid var(--control-border);
+        }
+
+        .nav-btn {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: 1px solid var(--control-border);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        select {
+            background-color: var(--select-bg);
+            color: var(--text-color);
+            border: 1px solid var(--control-border);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            flex-grow: 1;
+            max-width: 150px;
+        }
+
+        .nav-btn:hover, select:hover {
+            background-color: var(--button-hover);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        #full-chapter-container {
+            width: 100%;
+            text-align: center;
+            padding-top: 15px;
+            display: none;
+        }
+
+        #full-chapter-btn {
+            background-color: transparent;
+            color: var(--accent);
+            border: none;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        #content {
+            max-width: 800px;
+            width: 100%;
+            line-height: 1.6;
+            font-size: 18px;
+            transition: font-size 0.2s ease-in-out;
+            padding: 20px 20px 80px 20px;
+            box-sizing: border-box;
+        }
+
+        #content h2 { margin-top: 0; padding-top: 10px; }
+        .chapter-num { font-size: 1.5em; font-weight: bold; margin-right: 8px; }
+        .verse-num { font-size: 0.75em; vertical-align: super; color: #888; margin-right: 4px; }
+        
+        .error-msg {
+            color: #d9534f;
+            background-color: #f9f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #d9534f;
+            margin-top: 20px;
+        }
+        body.dark-mode .error-msg {
+            background-color: #2a1616;
+            color: #ff8b8b;
+            border-color: #8b2c2c;
+        }
+
+        /* Install Prompt Banner */
+        #install-banner {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--accent);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        #install-btn {
+            background-color: white;
+            color: var(--accent);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        #close-banner-btn {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="settings-bar">
+        <button id="toggle-theme" title="Toggle Theme">🌓</button>
+        <button id="decrease-font" title="Decrease Font">A-</button>
+        <button id="increase-font" title="Increase Font">A+</button>
+    </div>
+
+    <div class="nav-container">
+        <button id="prev-btn" class="nav-btn" title="Previous Chapter">&lsaquo;</button>
+        <select id="book-select"></select>
+        <select id="chapter-select"></select>
+        <button id="next-btn" class="nav-btn" title="Next Chapter">&rsaquo;</button>
+    </div>
+
+    <div id="full-chapter-container">
+        <button id="full-chapter-btn">Read Full Chapter instead</button>
+    </div>
+
+    <div id="content">Loading passage...</div>
+
+    <!-- PWA Install Banner -->
+    <div id="install-banner">
+        <button id="close-banner-btn">&times;</button>
+        <span id="install-text">Install this app on your device for quick access!</span>
+        <br>
+        <button id="install-btn">Install App</button>
+    </div>
+
+    <script>
+        // --- PWA SERVICE WORKER REGISTRATION --- //
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        // --- BIBLE METADATA --- //
+        const bibleBooks = {
+            "Genesis": 50, "Exodus": 40, "Leviticus": 27, "Numbers": 36, "Deuteronomy": 34,
+            "Joshua": 24, "Judges": 21, "Ruth": 4, "1 Samuel": 31, "2 Samuel": 24,
+            "1 Kings": 22, "2 Kings": 25, "1 Chronicles": 29, "2 Chronicles": 36,
+            "Ezra": 10, "Nehemiah": 13, "Esther": 10, "Job": 42, "Psalms": 150,
+            "Proverbs": 31, "Ecclesiastes": 12, "Song of Solomon": 8, "Isaiah": 66,
+            "Jeremiah": 52, "Lamentations": 5, "Ezekiel": 48, "Daniel": 12, "Hosea": 14,
+            "Joel": 3, "Amos": 9, "Obadiah": 1, "Jonah": 4, "Micah": 7, "Nahum": 3,
+            "Habakkuk": 3, "Zephaniah": 3, "Haggai": 2, "Zechariah": 14, "Malachi": 4,
+            "Matthew": 28, "Mark": 16, "Luke": 24, "John": 21, "Acts": 28, "Romans": 16,
+            "1 Corinthians": 16, "2 Corinthians": 13, "Galatians": 6, "Ephesians": 6,
+            "Philippians": 4, "Colossians": 4, "1 Thessalonians": 5, "2 Thessalonians": 3,
+            "1 Timothy": 6, "2 Timothy": 4, "Titus": 3, "Philemon": 1, "Hebrews": 13,
+            "James": 5, "1 Peter": 5, "2 Peter": 3, "1 John": 5, "2 John": 1, "3 John": 1,
+            "Jude": 1, "Revelation": 22
+        };
+
+        const bookNames = Object.keys(bibleBooks);
+
+        // --- ROT13 Helper Function --- //
+        function rot13(str) {
+            return str.replace(/[a-zA-Z]/g, function(c){
+                return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
+            });
+        }
+
+        // --- OBFUSCATED API KEY --- //
+        const OBFUSCATED_KEY = 'rrr77q6375p5pq47r60s164366pns4r7549sp105'; 
+        const API_KEY = rot13(OBFUSCATED_KEY);
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const contentDiv = document.getElementById('content');
+            const toggleThemeBtn = document.getElementById('toggle-theme');
+            const increaseFontBtn = document.getElementById('increase-font');
+            const decreaseFontBtn = document.getElementById('decrease-font');
+            const bookSelect = document.getElementById('book-select');
+            const chapterSelect = document.getElementById('chapter-select');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const fullChapterContainer = document.getElementById('full-chapter-container');
+            const fullChapterBtn = document.getElementById('full-chapter-btn');
+
+            let currentFontSize = 18;
+            let currentBook = "John";
+            let currentChapter = 1;
+            let isAutoNavigating = false;
+
+            // --- PWA INSTALL LOGIC --- //
+            let deferredPrompt;
+            const installBanner = document.getElementById('install-banner');
+            const installBtn = document.getElementById('install-btn');
+            const installText = document.getElementById('install-text');
+            const closeBannerBtn = document.getElementById('close-banner-btn');
+
+            // 1. Detect if running in standalone mode (already installed)
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            
+            // 2. Detect iOS
+            const isIos = () => {
+              const userAgent = window.navigator.userAgent.toLowerCase();
+              return /iphone|ipad|ipod/.test(userAgent);
+            };
+
+            if (!isStandalone) {
+                if (isIos()) {
+                    // iOS Workaround: Show instructions, hide the install button
+                    installText.innerHTML = "To install this app, tap the <b>Share</b> icon below and select <b>Add to Home Screen</b>.";
+                    installBtn.style.display = "none";
+                    installBanner.style.display = "block";
+                } else {
+                    // Android/Chrome: Wait for the beforeinstallprompt event
+                    window.addEventListener('beforeinstallprompt', (e) => {
+                        e.preventDefault();
+                        deferredPrompt = e;
+                        installBanner.style.display = "block";
+                    });
+
+                    installBtn.addEventListener('click', async () => {
+                        if (deferredPrompt) {
+                            deferredPrompt.prompt();
+                            const { outcome } = await deferredPrompt.userChoice;
+                            if (outcome === 'accepted') {
+                                installBanner.style.display = 'none';
+                            }
+                            deferredPrompt = null;
+                        }
+                    });
+                }
+            }
+
+            closeBannerBtn.addEventListener('click', () => {
+                installBanner.style.display = 'none';
+            });
+
+            // --- UI Setup --- //
+            bookNames.forEach(book => {
+                let opt = document.createElement('option');
+                opt.value = book;
+                opt.textContent = book;
+                bookSelect.appendChild(opt);
+            });
+
+            const updateChapterDropdown = (book) => {
+                chapterSelect.innerHTML = '';
+                const maxChapters = bibleBooks[book] || 1;
+                for (let i = 1; i <= maxChapters; i++) {
+                    let opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = `Ch. ${i}`;
+                    chapterSelect.appendChild(opt);
+                }
+            };
+
+            updateChapterDropdown(bookSelect.value);
+
+            toggleThemeBtn.addEventListener('click', () => document.body.classList.toggle('dark-mode'));
+            
+            increaseFontBtn.addEventListener('click', () => {
+                if (currentFontSize < 40) {
+                    currentFontSize += 2;
+                    contentDiv.style.fontSize = `${currentFontSize}px`;
+                }
+            });
+
+            decreaseFontBtn.addEventListener('click', () => {
+                if (currentFontSize > 12) {
+                    currentFontSize -= 2;
+                    contentDiv.style.fontSize = `${currentFontSize}px`;
+                }
+            });
+
+            // --- Navigation Logic --- //
+            const parseQueryToState = (query) => {
+                const sortedBooks = [...bookNames].sort((a, b) => b.length - a.length);
+                let foundBook = null;
+                let normalizedQuery = query.trim().replace(/\s+/g, ' ');
+
+                for (let b of sortedBooks) {
+                    if (normalizedQuery.toLowerCase().startsWith(b.toLowerCase())) {
+                        foundBook = b;
+                        break;
+                    }
+                }
+
+                if (!foundBook) return { isPartial: false }; 
+
+                let remainder = normalizedQuery.substring(foundBook.length).trim();
+                let chapterMatch = remainder.match(/^(\d+)/);
+                let chapter = chapterMatch ? parseInt(chapterMatch[1], 10) : 1;
+                let isPartial = remainder.includes(':') || remainder.includes('-');
+
+                return { book: foundBook, chapter: chapter, isPartial: isPartial };
+            };
+
+            const syncUIToState = (parsedInfo) => {
+                isAutoNavigating = true; 
+                
+                if (parsedInfo.book) {
+                    currentBook = parsedInfo.book;
+                    currentChapter = parsedInfo.chapter;
+                    
+                    bookSelect.value = currentBook;
+                    updateChapterDropdown(currentBook);
+                    chapterSelect.value = currentChapter;
+                }
+
+                fullChapterContainer.style.display = parsedInfo.isPartial ? 'block' : 'none';
+
+                let isFirst = currentBook === bookNames[0] && currentChapter === 1;
+                let isLast = currentBook === bookNames[bookNames.length - 1] && currentChapter === bibleBooks[currentBook];
+                
+                prevBtn.disabled = isFirst;
+                nextBtn.disabled = isLast;
+
+                isAutoNavigating = false;
+            };
+
+            const navigateTo = (query) => {
+                const url = new URL(window.location);
+                url.searchParams.set('q', query);
+                window.history.pushState({}, '', url);
+                fetchESV(query);
+            };
+
+            bookSelect.addEventListener('change', (e) => {
+                if(isAutoNavigating) return;
+                let newBook = e.target.value;
+                updateChapterDropdown(newBook);
+                navigateTo(`${newBook} 1`); 
+            });
+
+            chapterSelect.addEventListener('change', (e) => {
+                if(isAutoNavigating) return;
+                navigateTo(`${bookSelect.value} ${e.target.value}`);
+            });
+
+            fullChapterBtn.addEventListener('click', () => {
+                navigateTo(`${currentBook} ${currentChapter}`);
+            });
+
+            prevBtn.addEventListener('click', () => {
+                let newChapter = currentChapter - 1;
+                let newBook = currentBook;
+
+                if (newChapter < 1) {
+                    let bookIndex = bookNames.indexOf(currentBook);
+                    if (bookIndex > 0) {
+                        newBook = bookNames[bookIndex - 1];
+                        newChapter = bibleBooks[newBook]; 
+                    } else return;
+                }
+                navigateTo(`${newBook} ${newChapter}`);
+            });
+
+            nextBtn.addEventListener('click', () => {
+                let newChapter = currentChapter + 1;
+                let newBook = currentBook;
+                let maxChapter = bibleBooks[currentBook];
+
+                if (newChapter > maxChapter) {
+                    let bookIndex = bookNames.indexOf(currentBook);
+                    if (bookIndex < bookNames.length - 1) {
+                        newBook = bookNames[bookIndex + 1];
+                        newChapter = 1; 
+                    } else return;
+                }
+                navigateTo(`${newBook} ${newChapter}`);
+            });
+
+            window.addEventListener('popstate', () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const query = urlParams.get('q') || 'John 1';
+                fetchESV(query);
+            });
+
+            // --- API Logic --- //
+            const fetchESV = async (query) => {
+                contentDiv.innerHTML = '<em>Loading...</em>';
+                contentDiv.style.opacity = '0.5';
+
+                const parsed = parseQueryToState(query);
+                syncUIToState(parsed);
+
+                let apiQuery = query;
+                if (parsed.book && bibleBooks[parsed.book] === 1) {
+                    let remainder = query.substring(parsed.book.length).trim();
+                    if (remainder === '1') {
+                        apiQuery = parsed.book; 
+                    }
+                }
+
+                try {
+                    const apiUrl = `https://api.esv.org/v3/passage/html/?q=${encodeURIComponent(apiQuery)}&include-passage-references=true&include-audio-link=false`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Token ${API_KEY}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.passages && data.passages.length > 0) {
+                        contentDiv.innerHTML = data.passages.join('<br>');
+                    } else {
+                        contentDiv.innerHTML = '<p>No passage found for the given query.</p>';
+                    }
+                } catch (error) {
+                    contentDiv.innerHTML = `
+                        <div class="error-msg">
+                            <strong>Failed to fetch passage:</strong><br>
+                            ${error.message}
+                        </div>`;
+                } finally {
+                    contentDiv.style.opacity = '1';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            };
+
+            // Init Load
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialQuery = urlParams.get('q') || 'John 1';
+            fetchESV(initialQuery);
+        });
+    </script>
+</body>
+</html>
