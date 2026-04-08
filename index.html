@@ -7,6 +7,8 @@
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0066cc">
+    <!-- Updated for broader mobile support and removed deprecated warnings -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ESV Bible">
@@ -125,8 +127,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 22px; /* Increased font size to serve as header */
-            padding: 10px 16px; /* Slightly thicker padding */
+            font-size: 22px; 
+            padding: 10px 16px; 
         }
 
         .nav-menu {
@@ -368,7 +370,6 @@
         <button id="increase-font" title="Increase Font">A+</button>
     </div>
 
-    <!-- Main Navigation Bar with Custom Menu -->
     <div class="nav-container">
         <button id="prev-btn" class="nav-btn" title="Previous Chapter">&lsaquo;</button>
         
@@ -429,7 +430,9 @@
         const bookNames = Object.keys(bibleBooks);
 
         function rot13(str) {
-            return str.replace(//g, function(c){
+            // Using RegExp constructor safely avoids HTML formatting bugs
+            const re = new RegExp('[a-zA-Z]', 'g');
+            return str.replace(re, function(c){
                 return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
             });
         }
@@ -457,7 +460,7 @@
             let currentFontSize = parseInt(localStorage.getItem('esv-fontSize')) || 18;
             contentDiv.style.fontSize = `${currentFontSize}px`;
 
-            // --- Custom Accordion Menu Logic (Two Columns) --- //
+            // --- Custom Accordion Menu Logic --- //
             const renderAccordionMenu = () => {
                 navMenu.innerHTML = `
                     <div class="menu-columns">
@@ -483,7 +486,6 @@
                         generateChapterGrid(book, bookDiv);
                     });
 
-                    // Index < 39 is Genesis through Malachi
                     if (index < 39) {
                         otColumn.appendChild(bookDiv);
                     } else {
@@ -503,7 +505,7 @@
 
                 const grid = document.createElement('div');
                 grid.className = 'chapter-grid';
-                const maxChapters = bibleBooks || 1;
+                const maxChapters = bibleBooks[book] || 1;
 
                 for (let i = 1; i <= maxChapters; i++) {
                     const chapBtn = document.createElement('button');
@@ -574,7 +576,7 @@
 
             // --- Navigation Logic --- //
             const parseQueryToState = (query) => {
-                const sortedBooks =.sort((a, b) => b.length - a.length);
+                const sortedBooks = [...bookNames].sort((a, b) => b.length - a.length);
                 let foundBook = null;
                 let normalizedQuery = query.trim().replace(/\s+/g, ' ');
 
@@ -589,7 +591,7 @@
 
                 let remainder = normalizedQuery.substring(foundBook.length).trim();
                 let chapterMatch = remainder.match(/^(\d+)/);
-                let chapter = chapterMatch ? parseInt(chapterMatch, 10) : 1;
+                let chapter = chapterMatch ? parseInt(chapterMatch[1], 10) : 1;
                 let isPartial = remainder.includes(':') || remainder.includes('-');
 
                 return { book: foundBook, chapter: chapter, isPartial: isPartial };
@@ -604,8 +606,8 @@
 
                 fullChapterContainer.style.display = parsedInfo.isPartial ? 'block' : 'none';
 
-                let isFirst = currentBook === bookNames && currentChapter === 1;
-                let isLast = currentBook === bookNames && currentChapter === bibleBooks;
+                let isFirst = currentBook === bookNames[0] && currentChapter === 1;
+                let isLast = currentBook === bookNames[bookNames.length - 1] && currentChapter === bibleBooks[currentBook];
                 
                 prevBtn.disabled = isFirst;
                 nextBtn.disabled = isLast;
@@ -629,8 +631,8 @@
                 if (newChapter < 1) {
                     let bookIndex = bookNames.indexOf(currentBook);
                     if (bookIndex > 0) {
-                        newBook = bookNames;
-                        newChapter = bibleBooks; 
+                        newBook = bookNames[bookIndex - 1];
+                        newChapter = bibleBooks[newBook]; 
                     } else return;
                 }
                 navigateTo(`${newBook} ${newChapter}`);
@@ -639,12 +641,12 @@
             nextBtn.addEventListener('click', () => {
                 let newChapter = currentChapter + 1;
                 let newBook = currentBook;
-                let maxChapter = bibleBooks;
+                let maxChapter = bibleBooks[currentBook];
 
                 if (newChapter > maxChapter) {
                     let bookIndex = bookNames.indexOf(currentBook);
                     if (bookIndex < bookNames.length - 1) {
-                        newBook = bookNames;
+                        newBook = bookNames[bookIndex + 1];
                         newChapter = 1; 
                     } else return;
                 }
@@ -666,7 +668,7 @@
                 syncUIToState(parsed);
 
                 let apiQuery = query;
-                if (parsed.book && bibleBooks === 1) {
+                if (parsed.book && bibleBooks[parsed.book] === 1) {
                     let remainder = query.substring(parsed.book.length).trim();
                     if (remainder === '1') {
                         apiQuery = parsed.book; 
@@ -674,8 +676,29 @@
                 }
 
                 try {
-                    // Removed the passage heading by setting include-passage-references to false
-                    const apiUrl = `https://api.esv.org/v3/passage/html/?q=${encodeURIComponent(apiQuery)}&include-passage-references=false&include-audio-link=false&include-first-verse-numbers=false`;
+                    // Explicitly defining all query parameters in a dictionary as requested
+                    const apiParams = {
+                        'q': apiQuery,
+                        'include-passage-references': false,
+                        'include-verse-numbers': true,
+                        'include-first-verse-numbers': false,
+                        'include-footnotes': true,
+                        'include-footnote-body': true,
+                        'include-headings': true,
+                        'include-short-copyright': true,
+                        'include-copyright': false,
+                        'include-line-formatting': true,
+                        'include-chapter-numbers': true,
+                        'include-subheadings': true,
+                        'include-surrounding-chapters': false,
+                        'include-audio-link': false,
+                        'inline-styles': false,
+                        'wrapping-div': false,
+                        'include-book-titles': false
+                    };
+
+                    const queryString = new URLSearchParams(apiParams).toString();
+                    const apiUrl = `https://api.esv.org/v3/passage/html/?${queryString}`;
                     
                     const response = await fetch(apiUrl, {
                         method: 'GET',
