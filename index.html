@@ -80,7 +80,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 0 15px 15px 15px;
+            /* Added top padding and safe-area-inset to push buttons away from the very top edge */
+            padding: max(10px, env(safe-area-inset-top)) 15px 15px 15px;
             box-sizing: border-box;
             gap: 10px;
             position: sticky;
@@ -452,7 +453,9 @@
                 if(isAutoNavigating) return;
                 let newBook = e.target.value;
                 updateChapterDropdown(newBook);
-                navigateTo(`${newBook} 1`); 
+                
+                // Set focus to the chapter dropdown instead of auto-navigating
+                chapterSelect.focus(); 
             });
 
             chapterSelect.addEventListener('change', (e) => {
@@ -556,7 +559,6 @@
             const savedQuery = localStorage.getItem('esv-last-passage');
             const initialQuery = urlQuery || savedQuery || 'John 1';
 
-            // If we are loading from memory without a URL param, optionally update the URL to match
             if (!urlQuery && savedQuery) {
                 const url = new URL(window.location);
                 url.searchParams.set('q', savedQuery);
