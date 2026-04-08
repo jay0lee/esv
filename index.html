@@ -7,7 +7,6 @@
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0066cc">
-    <!-- Updated for broader mobile support and removed deprecated warnings -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -352,7 +351,11 @@
         }
     </style>
     <script>
-        if (localStorage.getItem('esv-theme') === 'dark') {
+        // Check for saved preference OR system preference
+        const savedTheme = localStorage.getItem('esv-theme');
+        const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
             document.documentElement.classList.add('dark-mode');
         }
     </script>
@@ -430,7 +433,6 @@
         const bookNames = Object.keys(bibleBooks);
 
         function rot13(str) {
-            // Using RegExp constructor safely avoids HTML formatting bugs
             const re = new RegExp('[a-zA-Z]', 'g');
             return str.replace(re, function(c){
                 return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
@@ -551,9 +553,30 @@
                 }
             });
 
-            // Settings Listeners
+            // --- Theme Settings & Listeners --- //
+            
+            // Listen for live OS system theme changes
+            if (window.matchMedia) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                    // Only auto-switch if the user hasn't explicitly set a preference
+                    if (!localStorage.getItem('esv-theme')) {
+                        if (event.matches) {
+                            document.documentElement.classList.add('dark-mode');
+                            document.body.classList.add('dark-mode');
+                        } else {
+                            document.documentElement.classList.remove('dark-mode');
+                            document.body.classList.remove('dark-mode');
+                        }
+                    }
+                });
+            }
+
             toggleThemeBtn.addEventListener('click', () => {
+                // Keep html and body in sync
+                document.documentElement.classList.toggle('dark-mode');
                 document.body.classList.toggle('dark-mode');
+                
+                // Save explicit manual preference
                 const isDark = document.body.classList.contains('dark-mode');
                 localStorage.setItem('esv-theme', isDark ? 'dark' : 'light');
             });
@@ -676,7 +699,6 @@
                 }
 
                 try {
-                    // Explicitly defining all query parameters in a dictionary as requested
                     const apiParams = {
                         'q': apiQuery,
                         'include-passage-references': false,
