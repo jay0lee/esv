@@ -23,6 +23,7 @@
             --button-hover: #e8e8e8;
             --select-bg: #ffffff;
             --accent: #0066cc;
+            --menu-grid-bg: #f9f9f9;
         }
 
         body.dark-mode {
@@ -35,6 +36,7 @@
             --button-hover: #3a3a3a;
             --select-bg: #1e1e1e;
             --accent: #66b3ff;
+            --menu-grid-bg: #181818;
         }
 
         body {
@@ -80,7 +82,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Added top padding and safe-area-inset to push buttons away from the very top edge */
             padding: max(10px, env(safe-area-inset-top)) 15px 15px 15px;
             box-sizing: border-box;
             gap: 10px;
@@ -100,21 +101,10 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
+            transition: background-color 0.2s;
         }
 
-        select {
-            background-color: var(--select-bg);
-            color: var(--text-color);
-            border: 1px solid var(--control-border);
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            flex-grow: 1;
-            max-width: 150px;
-        }
-
-        .nav-btn:hover, select:hover {
+        .nav-btn:hover {
             background-color: var(--button-hover);
         }
 
@@ -123,6 +113,95 @@
             cursor: not-allowed;
         }
 
+        /* Custom Accordion Menu Styles */
+        .nav-menu-container {
+            position: relative;
+            flex-grow: 1;
+            max-width: 250px;
+        }
+
+        #nav-toggle {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-menu {
+            position: absolute;
+            top: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            max-width: 90vw;
+            max-height: 65vh;
+            overflow-y: auto;
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            overscroll-behavior: contain;
+        }
+
+        .nav-menu.active {
+            display: flex;
+        }
+
+        .book-item {
+            padding: 14px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--control-border);
+            font-size: 16px;
+            user-select: none;
+            color: var(--text-color);
+            transition: background-color 0.1s;
+        }
+
+        .book-item:hover {
+            background-color: var(--button-hover);
+        }
+
+        .book-item.active-book {
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .chapter-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            padding: 15px;
+            background-color: var(--menu-grid-bg);
+            border-bottom: 1px solid var(--control-border);
+        }
+
+        .chapter-btn {
+            background: var(--button-bg);
+            border: 1px solid var(--control-border);
+            color: var(--text-color);
+            border-radius: 6px;
+            padding: 12px 0;
+            text-align: center;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.1s;
+        }
+
+        .chapter-btn:hover {
+            background-color: var(--button-hover);
+        }
+
+        .chapter-btn.active-chapter {
+            background-color: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* Contextual Buttons */
         #full-chapter-container {
             width: 100%;
             text-align: center;
@@ -140,6 +219,7 @@
             text-decoration: underline;
         }
 
+        /* Content Area */
         #content {
             max-width: 800px;
             width: 100%;
@@ -209,7 +289,6 @@
         }
     </style>
     <script>
-        // Apply theme immediately to prevent a white flash on load if dark mode is saved
         if (localStorage.getItem('esv-theme') === 'dark') {
             document.documentElement.classList.add('dark-mode');
         }
@@ -228,10 +307,20 @@
         <button id="increase-font" title="Increase Font">A+</button>
     </div>
 
+    <!-- Main Navigation Bar with Custom Menu -->
     <div class="nav-container">
         <button id="prev-btn" class="nav-btn" title="Previous Chapter">&lsaquo;</button>
-        <select id="book-select"></select>
-        <select id="chapter-select"></select>
+        
+        <div class="nav-menu-container">
+            <button id="nav-toggle" class="nav-btn">
+                <span id="nav-toggle-text">John 1</span> 
+                <small>&#9662;</small>
+            </button>
+            <div id="nav-menu" class="nav-menu">
+                <!-- Books and chapters are injected here via JS -->
+            </div>
+        </div>
+
         <button id="next-btn" class="nav-btn" title="Next Chapter">&rsaquo;</button>
     </div>
 
@@ -278,100 +367,125 @@
 
         const bookNames = Object.keys(bibleBooks);
 
-        // --- ROT13 Helper Function --- //
         function rot13(str) {
             return str.replace(/[a-zA-Z]/g, function(c){
                 return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
             });
         }
 
-        // --- OBFUSCATED API KEY --- //
         const OBFUSCATED_KEY = 'rrr77q6375p5pq47r60s164366pns4r7549sp105'; 
         const API_KEY = rot13(OBFUSCATED_KEY);
         
         document.addEventListener('DOMContentLoaded', () => {
-            // DOM Elements
             const contentDiv = document.getElementById('content');
             const toggleThemeBtn = document.getElementById('toggle-theme');
             const increaseFontBtn = document.getElementById('increase-font');
             const decreaseFontBtn = document.getElementById('decrease-font');
-            const bookSelect = document.getElementById('book-select');
-            const chapterSelect = document.getElementById('chapter-select');
             const prevBtn = document.getElementById('prev-btn');
             const nextBtn = document.getElementById('next-btn');
             const fullChapterContainer = document.getElementById('full-chapter-container');
             const fullChapterBtn = document.getElementById('full-chapter-btn');
+            
+            // Custom Navigation Menu Elements
+            const navToggle = document.getElementById('nav-toggle');
+            const navToggleText = document.getElementById('nav-toggle-text');
+            const navMenu = document.getElementById('nav-menu');
 
             let currentBook = "John";
             let currentChapter = 1;
-            let isAutoNavigating = false;
 
-            // --- LOCAL STORAGE (Memory) --- //
             let currentFontSize = parseInt(localStorage.getItem('esv-fontSize')) || 18;
             contentDiv.style.fontSize = `${currentFontSize}px`;
 
-            // --- PWA INSTALL LOGIC --- //
-            let deferredPrompt;
-            const installBanner = document.getElementById('install-banner');
-            const installBtn = document.getElementById('install-btn');
-            const installText = document.getElementById('install-text');
-            const closeBannerBtn = document.getElementById('close-banner-btn');
+            // --- Custom Accordion Menu Logic --- //
 
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-            const isIos = () => {
-              const userAgent = window.navigator.userAgent.toLowerCase();
-              return /iphone|ipad|ipod/.test(userAgent);
+            const renderAccordionMenu = () => {
+                navMenu.innerHTML = '';
+                
+                bookNames.forEach(book => {
+                    // Create Book Item
+                    const bookDiv = document.createElement('div');
+                    bookDiv.className = 'book-item';
+                    if (book === currentBook) bookDiv.classList.add('active-book');
+                    bookDiv.textContent = book;
+
+                    bookDiv.addEventListener('click', () => {
+                        // If clicking a different book, generate its grid
+                        generateChapterGrid(book, bookDiv);
+                    });
+
+                    navMenu.appendChild(bookDiv);
+
+                    // If it's the current book, pre-open the chapter grid
+                    if (book === currentBook) {
+                        generateChapterGrid(book, bookDiv, false);
+                    }
+                });
             };
 
-            if (!isStandalone) {
-                if (isIos()) {
-                    installText.innerHTML = "To install this app, tap the <b>Share</b> icon below and select <b>Add to Home Screen</b>.";
-                    installBtn.style.display = "none";
-                    installBanner.style.display = "block";
-                } else {
-                    window.addEventListener('beforeinstallprompt', (e) => {
-                        e.preventDefault();
-                        deferredPrompt = e;
-                        installBanner.style.display = "block";
-                    });
+            const generateChapterGrid = (book, bookElement, shouldScroll = true) => {
+                // Remove existing open grids
+                document.querySelectorAll('.chapter-grid').forEach(el => el.remove());
+                
+                // Reset active book styling
+                document.querySelectorAll('.book-item').forEach(el => el.classList.remove('active-book'));
+                bookElement.classList.add('active-book');
 
-                    installBtn.addEventListener('click', async () => {
-                        if (deferredPrompt) {
-                            deferredPrompt.prompt();
-                            const { outcome } = await deferredPrompt.userChoice;
-                            if (outcome === 'accepted') {
-                                installBanner.style.display = 'none';
-                            }
-                            deferredPrompt = null;
-                        }
-                    });
-                }
-            }
-
-            closeBannerBtn.addEventListener('click', () => {
-                installBanner.style.display = 'none';
-            });
-
-            // --- UI Setup --- //
-            bookNames.forEach(book => {
-                let opt = document.createElement('option');
-                opt.value = book;
-                opt.textContent = book;
-                bookSelect.appendChild(opt);
-            });
-
-            const updateChapterDropdown = (book) => {
-                chapterSelect.innerHTML = '';
+                // Create the grid container
+                const grid = document.createElement('div');
+                grid.className = 'chapter-grid';
                 const maxChapters = bibleBooks[book] || 1;
+
+                // Populate grid with chapters
                 for (let i = 1; i <= maxChapters; i++) {
-                    let opt = document.createElement('option');
-                    opt.value = i;
-                    opt.textContent = `Ch. ${i}`;
-                    chapterSelect.appendChild(opt);
+                    const chapBtn = document.createElement('button');
+                    chapBtn.className = 'chapter-btn';
+                    chapBtn.textContent = i;
+                    
+                    if (book === currentBook && i === currentChapter) {
+                        chapBtn.classList.add('active-chapter');
+                    }
+
+                    chapBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // prevent book div click
+                        navMenu.classList.remove('active'); // Close menu
+                        navigateTo(`${book} ${i}`);
+                    });
+
+                    grid.appendChild(chapBtn);
+                }
+
+                // Insert grid right beneath the selected book
+                bookElement.insertAdjacentElement('afterend', grid);
+
+                // Scroll the grid into view slightly if requested
+                if (shouldScroll) {
+                    grid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             };
 
-            updateChapterDropdown(bookSelect.value);
+            // Toggle menu open/close
+            navToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                navMenu.classList.toggle('active');
+                
+                if (navMenu.classList.contains('active')) {
+                    // Re-render to ensure current state is accurate
+                    renderAccordionMenu();
+                    // Scroll current active book into view in the menu
+                    setTimeout(() => {
+                        const activeEl = document.querySelector('.active-book');
+                        if (activeEl) activeEl.scrollIntoView({ block: 'center' });
+                    }, 10);
+                }
+            });
+
+            // Close menu when clicking outside of it
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.nav-menu-container')) {
+                    navMenu.classList.remove('active');
+                }
+            });
 
             // Settings Listeners
             toggleThemeBtn.addEventListener('click', () => {
@@ -420,15 +534,12 @@
             };
 
             const syncUIToState = (parsedInfo) => {
-                isAutoNavigating = true; 
-                
                 if (parsedInfo.book) {
                     currentBook = parsedInfo.book;
                     currentChapter = parsedInfo.chapter;
                     
-                    bookSelect.value = currentBook;
-                    updateChapterDropdown(currentBook);
-                    chapterSelect.value = currentChapter;
+                    // Update Button Text
+                    navToggleText.textContent = `${currentBook} ${currentChapter}`;
                 }
 
                 fullChapterContainer.style.display = parsedInfo.isPartial ? 'block' : 'none';
@@ -438,8 +549,6 @@
                 
                 prevBtn.disabled = isFirst;
                 nextBtn.disabled = isLast;
-
-                isAutoNavigating = false;
             };
 
             const navigateTo = (query) => {
@@ -448,20 +557,6 @@
                 window.history.pushState({}, '', url);
                 fetchESV(query);
             };
-
-            bookSelect.addEventListener('change', (e) => {
-                if(isAutoNavigating) return;
-                let newBook = e.target.value;
-                updateChapterDropdown(newBook);
-                
-                // Set focus to the chapter dropdown instead of auto-navigating
-                chapterSelect.focus(); 
-            });
-
-            chapterSelect.addEventListener('change', (e) => {
-                if(isAutoNavigating) return;
-                navigateTo(`${bookSelect.value} ${e.target.value}`);
-            });
 
             fullChapterBtn.addEventListener('click', () => {
                 navigateTo(`${currentBook} ${currentChapter}`);
@@ -536,7 +631,6 @@
                     
                     if (data.passages && data.passages.length > 0) {
                         contentDiv.innerHTML = data.passages.join('<br>');
-                        // Save successfully loaded passage
                         localStorage.setItem('esv-last-passage', query);
                     } else {
                         contentDiv.innerHTML = '<p>No passage found for the given query.</p>';
@@ -553,7 +647,7 @@
                 }
             };
 
-            // Init Load with Memory Check
+            // Init Load
             const urlParams = new URLSearchParams(window.location.search);
             const urlQuery = urlParams.get('q');
             const savedQuery = localStorage.getItem('esv-last-passage');
@@ -566,6 +660,48 @@
             }
 
             fetchESV(initialQuery);
+
+            // --- PWA INSTALL LOGIC --- //
+            let deferredPrompt;
+            const installBanner = document.getElementById('install-banner');
+            const installBtn = document.getElementById('install-btn');
+            const installText = document.getElementById('install-text');
+            const closeBannerBtn = document.getElementById('close-banner-btn');
+
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            const isIos = () => {
+              const userAgent = window.navigator.userAgent.toLowerCase();
+              return /iphone|ipad|ipod/.test(userAgent);
+            };
+
+            if (!isStandalone) {
+                if (isIos()) {
+                    installText.innerHTML = "To install this app, tap the <b>Share</b> icon below and select <b>Add to Home Screen</b>.";
+                    installBtn.style.display = "none";
+                    installBanner.style.display = "block";
+                } else {
+                    window.addEventListener('beforeinstallprompt', (e) => {
+                        e.preventDefault();
+                        deferredPrompt = e;
+                        installBanner.style.display = "block";
+                    });
+
+                    installBtn.addEventListener('click', async () => {
+                        if (deferredPrompt) {
+                            deferredPrompt.prompt();
+                            const { outcome } = await deferredPrompt.userChoice;
+                            if (outcome === 'accepted') {
+                                installBanner.style.display = 'none';
+                            }
+                            deferredPrompt = null;
+                        }
+                    });
+                }
+            }
+
+            closeBannerBtn.addEventListener('click', () => {
+                installBanner.style.display = 'none';
+            });
         });
     </script>
 </body>
