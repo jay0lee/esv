@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ESV Bible Viewer</title>
     
-    <!-- PWA Requirements -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0066cc">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ESV Bible">
-   <link rel="apple-touch-icon" href="icon-512.svg">
+    <link rel="apple-touch-icon" href="icon-512.svg">
 
     <style>
         :root {
@@ -144,7 +143,6 @@
             max-width: 800px;
             width: 100%;
             line-height: 1.6;
-            font-size: 18px;
             transition: font-size 0.2s ease-in-out;
             padding: 20px 20px 80px 20px;
             box-sizing: border-box;
@@ -209,8 +207,19 @@
             cursor: pointer;
         }
     </style>
+    <script>
+        // Apply theme immediately to prevent a white flash on load if dark mode is saved
+        if (localStorage.getItem('esv-theme') === 'dark') {
+            document.documentElement.classList.add('dark-mode');
+        }
+    </script>
 </head>
-<body>
+<body class="">
+    <script>
+        if (document.documentElement.classList.contains('dark-mode')) {
+            document.body.classList.add('dark-mode');
+        }
+    </script>
 
     <div class="settings-bar">
         <button id="toggle-theme" title="Toggle Theme">🌓</button>
@@ -231,7 +240,6 @@
 
     <div id="content">Loading passage...</div>
 
-    <!-- PWA Install Banner -->
     <div id="install-banner">
         <button id="close-banner-btn">&times;</button>
         <span id="install-text">Install this app on your device for quick access!</span>
@@ -293,10 +301,13 @@
             const fullChapterContainer = document.getElementById('full-chapter-container');
             const fullChapterBtn = document.getElementById('full-chapter-btn');
 
-            let currentFontSize = 18;
             let currentBook = "John";
             let currentChapter = 1;
             let isAutoNavigating = false;
+
+            // --- LOCAL STORAGE (Memory) --- //
+            let currentFontSize = parseInt(localStorage.getItem('esv-fontSize')) || 18;
+            contentDiv.style.fontSize = `${currentFontSize}px`;
 
             // --- PWA INSTALL LOGIC --- //
             let deferredPrompt;
@@ -305,10 +316,7 @@
             const installText = document.getElementById('install-text');
             const closeBannerBtn = document.getElementById('close-banner-btn');
 
-            // 1. Detect if running in standalone mode (already installed)
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-            
-            // 2. Detect iOS
             const isIos = () => {
               const userAgent = window.navigator.userAgent.toLowerCase();
               return /iphone|ipad|ipod/.test(userAgent);
@@ -316,12 +324,10 @@
 
             if (!isStandalone) {
                 if (isIos()) {
-                    // iOS Workaround: Show instructions, hide the install button
                     installText.innerHTML = "To install this app, tap the <b>Share</b> icon below and select <b>Add to Home Screen</b>.";
                     installBtn.style.display = "none";
                     installBanner.style.display = "block";
                 } else {
-                    // Android/Chrome: Wait for the beforeinstallprompt event
                     window.addEventListener('beforeinstallprompt', (e) => {
                         e.preventDefault();
                         deferredPrompt = e;
@@ -366,12 +372,18 @@
 
             updateChapterDropdown(bookSelect.value);
 
-            toggleThemeBtn.addEventListener('click', () => document.body.classList.toggle('dark-mode'));
+            // Settings Listeners
+            toggleThemeBtn.addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                const isDark = document.body.classList.contains('dark-mode');
+                localStorage.setItem('esv-theme', isDark ? 'dark' : 'light');
+            });
             
             increaseFontBtn.addEventListener('click', () => {
                 if (currentFontSize < 40) {
                     currentFontSize += 2;
                     contentDiv.style.fontSize = `${currentFontSize}px`;
+                    localStorage.setItem('esv-fontSize', currentFontSize);
                 }
             });
 
@@ -379,6 +391,7 @@
                 if (currentFontSize > 12) {
                     currentFontSize -= 2;
                     contentDiv.style.fontSize = `${currentFontSize}px`;
+                    localStorage.setItem('esv-fontSize', currentFontSize);
                 }
             });
 
@@ -482,7 +495,7 @@
 
             window.addEventListener('popstate', () => {
                 const urlParams = new URLSearchParams(window.location.search);
-                const query = urlParams.get('q') || 'John 1';
+                const query = urlParams.get('q') || localStorage.getItem('esv-last-passage') || 'John 1';
                 fetchESV(query);
             });
 
@@ -520,6 +533,8 @@
                     
                     if (data.passages && data.passages.length > 0) {
                         contentDiv.innerHTML = data.passages.join('<br>');
+                        // Save successfully loaded passage
+                        localStorage.setItem('esv-last-passage', query);
                     } else {
                         contentDiv.innerHTML = '<p>No passage found for the given query.</p>';
                     }
@@ -535,9 +550,19 @@
                 }
             };
 
-            // Init Load
+            // Init Load with Memory Check
             const urlParams = new URLSearchParams(window.location.search);
-            const initialQuery = urlParams.get('q') || 'John 1';
+            const urlQuery = urlParams.get('q');
+            const savedQuery = localStorage.getItem('esv-last-passage');
+            const initialQuery = urlQuery || savedQuery || 'John 1';
+
+            // If we are loading from memory without a URL param, optionally update the URL to match
+            if (!urlQuery && savedQuery) {
+                const url = new URL(window.location);
+                url.searchParams.set('q', savedQuery);
+                window.history.replaceState({}, '', url);
+            }
+
             fetchESV(initialQuery);
         });
     </script>
