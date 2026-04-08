@@ -229,9 +229,24 @@
             box-sizing: border-box;
         }
 
+        /* Clean up ESV default HTML formatting */
         #content h2 { margin-top: 0; padding-top: 10px; }
         .chapter-num { font-size: 1.5em; font-weight: bold; margin-right: 8px; }
+        
+        /* Subtle verse numbers */
         .verse-num { font-size: 0.75em; vertical-align: super; color: #888; margin-right: 4px; }
+        body.dark-mode .verse-num { color: #aaa; }
+
+        /* Neutralize and style footnote/cross-reference links */
+        #content a {
+            color: #888;
+            text-decoration: none;
+            pointer-events: none; /* Disables clicking entirely */
+            cursor: text;
+        }
+        body.dark-mode #content a {
+            color: #aaa;
+        }
         
         .error-msg {
             color: #d9534f;
@@ -386,7 +401,6 @@
             const fullChapterContainer = document.getElementById('full-chapter-container');
             const fullChapterBtn = document.getElementById('full-chapter-btn');
             
-            // Custom Navigation Menu Elements
             const navToggle = document.getElementById('nav-toggle');
             const navToggleText = document.getElementById('nav-toggle-text');
             const navMenu = document.getElementById('nav-menu');
@@ -398,25 +412,21 @@
             contentDiv.style.fontSize = `${currentFontSize}px`;
 
             // --- Custom Accordion Menu Logic --- //
-
             const renderAccordionMenu = () => {
                 navMenu.innerHTML = '';
                 
                 bookNames.forEach(book => {
-                    // Create Book Item
                     const bookDiv = document.createElement('div');
                     bookDiv.className = 'book-item';
                     if (book === currentBook) bookDiv.classList.add('active-book');
                     bookDiv.textContent = book;
 
                     bookDiv.addEventListener('click', () => {
-                        // If clicking a different book, generate its grid
                         generateChapterGrid(book, bookDiv);
                     });
 
                     navMenu.appendChild(bookDiv);
 
-                    // If it's the current book, pre-open the chapter grid
                     if (book === currentBook) {
                         generateChapterGrid(book, bookDiv, false);
                     }
@@ -424,19 +434,14 @@
             };
 
             const generateChapterGrid = (book, bookElement, shouldScroll = true) => {
-                // Remove existing open grids
                 document.querySelectorAll('.chapter-grid').forEach(el => el.remove());
-                
-                // Reset active book styling
                 document.querySelectorAll('.book-item').forEach(el => el.classList.remove('active-book'));
                 bookElement.classList.add('active-book');
 
-                // Create the grid container
                 const grid = document.createElement('div');
                 grid.className = 'chapter-grid';
                 const maxChapters = bibleBooks[book] || 1;
 
-                // Populate grid with chapters
                 for (let i = 1; i <= maxChapters; i++) {
                     const chapBtn = document.createElement('button');
                     chapBtn.className = 'chapter-btn';
@@ -447,32 +452,27 @@
                     }
 
                     chapBtn.addEventListener('click', (e) => {
-                        e.stopPropagation(); // prevent book div click
-                        navMenu.classList.remove('active'); // Close menu
+                        e.stopPropagation(); 
+                        navMenu.classList.remove('active'); 
                         navigateTo(`${book} ${i}`);
                     });
 
                     grid.appendChild(chapBtn);
                 }
 
-                // Insert grid right beneath the selected book
                 bookElement.insertAdjacentElement('afterend', grid);
 
-                // Scroll the grid into view slightly if requested
                 if (shouldScroll) {
                     grid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             };
 
-            // Toggle menu open/close
             navToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
                 navMenu.classList.toggle('active');
                 
                 if (navMenu.classList.contains('active')) {
-                    // Re-render to ensure current state is accurate
                     renderAccordionMenu();
-                    // Scroll current active book into view in the menu
                     setTimeout(() => {
                         const activeEl = document.querySelector('.active-book');
                         if (activeEl) activeEl.scrollIntoView({ block: 'center' });
@@ -480,7 +480,6 @@
                 }
             });
 
-            // Close menu when clicking outside of it
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.nav-menu-container')) {
                     navMenu.classList.remove('active');
@@ -537,8 +536,6 @@
                 if (parsedInfo.book) {
                     currentBook = parsedInfo.book;
                     currentChapter = parsedInfo.chapter;
-                    
-                    // Update Button Text
                     navToggleText.textContent = `${currentBook} ${currentChapter}`;
                 }
 
@@ -614,7 +611,7 @@
                 }
 
                 try {
-                    const apiUrl = `https://api.esv.org/v3/passage/html/?q=${encodeURIComponent(apiQuery)}&include-passage-references=true&include-audio-link=false`;
+                    const apiUrl = `https://api.esv.org/v3/passage/html/?q=${encodeURIComponent(apiQuery)}&include-passage-references=true&include-audio-link=false&include-first-verse-numbers=false`;
                     
                     const response = await fetch(apiUrl, {
                         method: 'GET',
