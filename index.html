@@ -113,11 +113,11 @@
             cursor: not-allowed;
         }
 
-        /* Custom Accordion Menu Styles */
+        /* Two-Column Accordion Menu Styles */
         .nav-menu-container {
             position: relative;
             flex-grow: 1;
-            max-width: 250px;
+            max-width: 300px;
         }
 
         #nav-toggle {
@@ -132,8 +132,8 @@
             top: calc(100% + 5px);
             left: 50%;
             transform: translateX(-50%);
-            width: 320px;
-            max-width: 90vw;
+            width: 550px; /* Widened to fit two columns */
+            max-width: 95vw;
             max-height: 65vh;
             overflow-y: auto;
             background: var(--control-bg);
@@ -141,20 +141,52 @@
             border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
             z-index: 200;
-            display: none;
-            flex-direction: column;
+            display: none; /* Changed from flex to block for inner columns */
             overscroll-behavior: contain;
         }
 
         .nav-menu.active {
+            display: block;
+        }
+
+        .menu-columns {
             display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .menu-column {
+            flex: 1;
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .menu-column:first-child {
+            border-right: 1px solid var(--control-border);
+        }
+
+        .column-header {
+            padding: 10px 0;
+            text-align: center;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            color: #888;
+            background: var(--control-bg);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--control-border);
         }
 
         .book-item {
-            padding: 14px 20px;
+            padding: 12px 15px;
             cursor: pointer;
             border-bottom: 1px solid var(--control-border);
-            font-size: 16px;
+            font-size: 15px;
             user-select: none;
             color: var(--text-color);
             transition: background-color 0.1s;
@@ -172,8 +204,8 @@
         .chapter-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            padding: 15px;
+            gap: 8px;
+            padding: 12px;
             background-color: var(--menu-grid-bg);
             border-bottom: 1px solid var(--control-border);
         }
@@ -183,10 +215,10 @@
             border: 1px solid var(--control-border);
             color: var(--text-color);
             border-radius: 6px;
-            padding: 12px 0;
+            padding: 10px 0;
             text-align: center;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 15px;
             transition: all 0.1s;
         }
 
@@ -229,24 +261,19 @@
             box-sizing: border-box;
         }
 
-        /* Clean up ESV default HTML formatting */
         #content h2 { margin-top: 0; padding-top: 10px; }
         .chapter-num { font-size: 1.5em; font-weight: bold; margin-right: 8px; }
         
-        /* Subtle verse numbers */
         .verse-num { font-size: 0.75em; vertical-align: super; color: #888; margin-right: 4px; }
         body.dark-mode .verse-num { color: #aaa; }
 
-        /* Neutralize and style footnote/cross-reference links */
         #content a {
             color: #888;
             text-decoration: none;
-            pointer-events: none; /* Disables clicking entirely */
+            pointer-events: none;
             cursor: text;
         }
-        body.dark-mode #content a {
-            color: #aaa;
-        }
+        body.dark-mode #content a { color: #aaa; }
         
         .error-msg {
             color: #d9534f;
@@ -302,6 +329,23 @@
             font-size: 16px;
             cursor: pointer;
         }
+
+        /* Mobile specific adjustments for the tight 2-column view */
+        @media (max-width: 500px) {
+            .book-item {
+                font-size: 13px;
+                padding: 12px 8px;
+            }
+            .chapter-grid {
+                grid-template-columns: repeat(4, 1fr); /* Reduce columns on small screens */
+                gap: 6px;
+                padding: 8px;
+            }
+            .chapter-btn {
+                padding: 8px 0;
+                font-size: 13px;
+            }
+        }
     </style>
     <script>
         if (localStorage.getItem('esv-theme') === 'dark') {
@@ -332,7 +376,7 @@
                 <small>&#9662;</small>
             </button>
             <div id="nav-menu" class="nav-menu">
-                <!-- Books and chapters are injected here via JS -->
+                <!-- Columns and books injected here via JS -->
             </div>
         </div>
 
@@ -411,11 +455,24 @@
             let currentFontSize = parseInt(localStorage.getItem('esv-fontSize')) || 18;
             contentDiv.style.fontSize = `${currentFontSize}px`;
 
-            // --- Custom Accordion Menu Logic --- //
+            // --- Custom Accordion Menu Logic (Two Columns) --- //
             const renderAccordionMenu = () => {
-                navMenu.innerHTML = '';
+                // Construct the base columns
+                navMenu.innerHTML = `
+                    <div class="menu-columns">
+                        <div id="ot-column" class="menu-column">
+                            <div class="column-header">Old Testament</div>
+                        </div>
+                        <div id="nt-column" class="menu-column">
+                            <div class="column-header">New Testament</div>
+                        </div>
+                    </div>
+                `;
                 
-                bookNames.forEach(book => {
+                const otColumn = document.getElementById('ot-column');
+                const ntColumn = document.getElementById('nt-column');
+
+                bookNames.forEach((book, index) => {
                     const bookDiv = document.createElement('div');
                     bookDiv.className = 'book-item';
                     if (book === currentBook) bookDiv.classList.add('active-book');
@@ -425,7 +482,12 @@
                         generateChapterGrid(book, bookDiv);
                     });
 
-                    navMenu.appendChild(bookDiv);
+                    // Index < 39 is Genesis through Malachi
+                    if (index < 39) {
+                        otColumn.appendChild(bookDiv);
+                    } else {
+                        ntColumn.appendChild(bookDiv);
+                    }
 
                     if (book === currentBook) {
                         generateChapterGrid(book, bookDiv, false);
