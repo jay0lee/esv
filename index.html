@@ -125,6 +125,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 22px; /* Increased font size to serve as header */
+            padding: 10px 16px; /* Slightly thicker padding */
         }
 
         .nav-menu {
@@ -132,7 +134,7 @@
             top: calc(100% + 5px);
             left: 50%;
             transform: translateX(-50%);
-            width: 550px; /* Widened to fit two columns */
+            width: 550px; 
             max-width: 95vw;
             max-height: 65vh;
             overflow-y: auto;
@@ -141,7 +143,7 @@
             border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
             z-index: 200;
-            display: none; /* Changed from flex to block for inner columns */
+            display: none; 
             overscroll-behavior: contain;
         }
 
@@ -330,14 +332,14 @@
             cursor: pointer;
         }
 
-        /* Mobile specific adjustments for the tight 2-column view */
+        /* Mobile specific adjustments */
         @media (max-width: 500px) {
             .book-item {
                 font-size: 13px;
                 padding: 12px 8px;
             }
             .chapter-grid {
-                grid-template-columns: repeat(4, 1fr); /* Reduce columns on small screens */
+                grid-template-columns: repeat(4, 1fr); 
                 gap: 6px;
                 padding: 8px;
             }
@@ -427,7 +429,7 @@
         const bookNames = Object.keys(bibleBooks);
 
         function rot13(str) {
-            return str.replace(/[a-zA-Z]/g, function(c){
+            return str.replace(//g, function(c){
                 return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
             });
         }
@@ -457,7 +459,6 @@
 
             // --- Custom Accordion Menu Logic (Two Columns) --- //
             const renderAccordionMenu = () => {
-                // Construct the base columns
                 navMenu.innerHTML = `
                     <div class="menu-columns">
                         <div id="ot-column" class="menu-column">
@@ -502,7 +503,7 @@
 
                 const grid = document.createElement('div');
                 grid.className = 'chapter-grid';
-                const maxChapters = bibleBooks[book] || 1;
+                const maxChapters = bibleBooks || 1;
 
                 for (let i = 1; i <= maxChapters; i++) {
                     const chapBtn = document.createElement('button');
@@ -573,7 +574,7 @@
 
             // --- Navigation Logic --- //
             const parseQueryToState = (query) => {
-                const sortedBooks = [...bookNames].sort((a, b) => b.length - a.length);
+                const sortedBooks =.sort((a, b) => b.length - a.length);
                 let foundBook = null;
                 let normalizedQuery = query.trim().replace(/\s+/g, ' ');
 
@@ -588,7 +589,7 @@
 
                 let remainder = normalizedQuery.substring(foundBook.length).trim();
                 let chapterMatch = remainder.match(/^(\d+)/);
-                let chapter = chapterMatch ? parseInt(chapterMatch[1], 10) : 1;
+                let chapter = chapterMatch ? parseInt(chapterMatch, 10) : 1;
                 let isPartial = remainder.includes(':') || remainder.includes('-');
 
                 return { book: foundBook, chapter: chapter, isPartial: isPartial };
@@ -603,8 +604,8 @@
 
                 fullChapterContainer.style.display = parsedInfo.isPartial ? 'block' : 'none';
 
-                let isFirst = currentBook === bookNames[0] && currentChapter === 1;
-                let isLast = currentBook === bookNames[bookNames.length - 1] && currentChapter === bibleBooks[currentBook];
+                let isFirst = currentBook === bookNames && currentChapter === 1;
+                let isLast = currentBook === bookNames && currentChapter === bibleBooks;
                 
                 prevBtn.disabled = isFirst;
                 nextBtn.disabled = isLast;
@@ -628,8 +629,8 @@
                 if (newChapter < 1) {
                     let bookIndex = bookNames.indexOf(currentBook);
                     if (bookIndex > 0) {
-                        newBook = bookNames[bookIndex - 1];
-                        newChapter = bibleBooks[newBook]; 
+                        newBook = bookNames;
+                        newChapter = bibleBooks; 
                     } else return;
                 }
                 navigateTo(`${newBook} ${newChapter}`);
@@ -638,12 +639,12 @@
             nextBtn.addEventListener('click', () => {
                 let newChapter = currentChapter + 1;
                 let newBook = currentBook;
-                let maxChapter = bibleBooks[currentBook];
+                let maxChapter = bibleBooks;
 
                 if (newChapter > maxChapter) {
                     let bookIndex = bookNames.indexOf(currentBook);
                     if (bookIndex < bookNames.length - 1) {
-                        newBook = bookNames[bookIndex + 1];
+                        newBook = bookNames;
                         newChapter = 1; 
                     } else return;
                 }
@@ -665,7 +666,7 @@
                 syncUIToState(parsed);
 
                 let apiQuery = query;
-                if (parsed.book && bibleBooks[parsed.book] === 1) {
+                if (parsed.book && bibleBooks === 1) {
                     let remainder = query.substring(parsed.book.length).trim();
                     if (remainder === '1') {
                         apiQuery = parsed.book; 
@@ -673,7 +674,8 @@
                 }
 
                 try {
-                    const apiUrl = `https://api.esv.org/v3/passage/html/?q=${encodeURIComponent(apiQuery)}&include-passage-references=true&include-audio-link=false&include-first-verse-numbers=false`;
+                    // Removed the passage heading by setting include-passage-references to false
+                    const apiUrl = `https://api.esv.org/v3/passage/html/?q=${encodeURIComponent(apiQuery)}&include-passage-references=false&include-audio-link=false&include-first-verse-numbers=false`;
                     
                     const response = await fetch(apiUrl, {
                         method: 'GET',
